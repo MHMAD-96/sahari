@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>مخبز الصحاري — إدارة الصناديق (Manager Pro v9)</title>
+<style>
+:root{
+  --bg:#f7f7fb;--card:#fff;--muted:#6b7280;--text:#0f172a;
+  --primary:#ef4444;--primary-700:#b91c1c;--green:#16a34a;--blue:#2563eb;
+  --yellow:#f59e0b;--border:#e5e7eb;--shadow:0 8px 20px rgba(0,0,0,.06)
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:linear-gradient(135deg,#fff7f7,#fff),var(--bg);font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Arabic","Helvetica Neue",Arial,"Noto Kufi Arabic","Apple Color Emoji","Segoe UI Emoji";color:var(--text)}
+.container{max-width:1040px;margin:0 auto;padding:16px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow)}
+.p-2{padding:8px}.p-3{padding:12px}.p-4{padding:16px}.p-6{padding:24px}.p-8{padding:32px}
+.mt-2{margin-top:8px}.mt-3{margin-top:12px}.mt-4{margin-top:16px}.mt-6{margin-top:24px}.mt-8{margin-top:32px}
+.mb-2{margin-bottom:8px}.mb-3{margin-bottom:12px}.mb-4{margin-bottom:16px}.mb-6{margin-bottom:24px}.mb-8{margin-bottom:32px}
+.grid{display:grid;gap:12px}.grid-2{grid-template-columns:repeat(2,1fr)}.grid-3{grid-template-columns:repeat(3,1fr)}
+@media (max-width:900px){.grid-2,.grid-3{grid-template-columns:1fr}}
+.row{display:flex;align-items:center;gap:12px}
+.between{display:flex;align-items:center;justify-content:space-between}
+.center{text-align:center}
+.btn{appearance:none;border:1px solid var(--border);background:#fff;padding:10px 14px;border-radius:12px;cursor:pointer;font-weight:600}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary{background:var(--primary);border-color:var(--primary);color:#fff}
+.btn-primary:hover{background:var(--primary-700)}
+.btn-green{background:var(--green);border-color:#16a34a;color:#fff}
+.btn-blue{background:#2563eb;border-color:#2563eb;color:#fff}
+.btn-warning{background:#f59e0b;border-color:#f59e0b;color:#fff}
+.btn-danger{background:#dc2626;border-color:#dc2626;color:#fff}
+.tab{border-bottom:2px solid transparent;padding:10px 14px;font-weight:700;color:var(--muted);cursor:pointer}
+.tab.active{border-bottom-color:var(--primary);color:var(--primary)}
+.stat{background:#fff;border:1px solid var(--border);border-radius:14px;padding:14px}
+.muted{color:var(--muted)} .danger{color:#dc2626} .success{color:#16a34a}
+input,select,textarea{width:100%;padding:12px;border:1px solid var(--border);border-radius:12px;background:#fff;color:#0f172a;outline:none}
+input:focus,select:focus,textarea:focus{border-color:#fca5a5;box-shadow:0 0 0 3px #ffe4e6}
+.table{width:100%;border-collapse:separate;border-spacing:0 8px}
+.table th,.table td{padding:10px 12px;background:#fff;border:1px solid var(--border)}
+.table th{background:#f8fafc;text-align:right}
+.table tr td:first-child,.table tr th:first-child{border-top-right-radius:10px;border-bottom-right-radius:10px}
+.table tr td:last-child,.table tr th:last-child{border-top-left-radius:10px;border-bottom-left-radius:10px}
+.tag-open{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:999px;padding:4px 10px;font-size:12px}
+.tag-closed{background:#ecfdf5;border:1px solid #bbf7d0;color:#065f46;border-radius:999px;padding:4px 10px;font-size:12px}
+.topbar{position:sticky;top:0;z-index:20;background:#fff;border-bottom:1px solid var(--border)}
+
+/* Debug Overlay */
+#debug-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;z-index:9999}
+#debug-box{position:absolute;top:20px;left:50%;transform:translateX(-50%);max-width:90%;background:#fff;border-radius:12px;padding:12px;font-family:ui-monospace,Menlo,Consolas,monospace}
+#debug-text{white-space:pre-wrap;font-size:12px;direction:ltr;text-align:left}
+/* Print overlay fallback */
+#print-overlay{position:fixed;inset:0;background:#fff;overflow:auto;z-index:99999;padding:20px;display:none}
+</style>
+</head>
+<body>
+<div id="debug-overlay"><div id="debug-box"><b style="color:#b91c1c">JS Error</b><pre id="debug-text"></pre><div class="row"><button class="btn" onclick="document.getElementById('debug-overlay').style.display='none'">إغلاق</button></div></div></div>
+<div id="print-overlay"></div>
+<div id="app"></div>
+
+<script>
+// ===== Debug overlay =====
+window.addEventListener('error', function(e){
+  try{
+    var box = document.getElementById('debug-overlay');
+    var txt = document.getElementById('debug-text');
+    if(box && txt){
+      box.style.display='block';
+      txt.textContent=(e.message||'')+'\\n'+(e.filename||'')+':'+(e.lineno||'')+':'+(e.colno||'')+'\\n'+(e.error&&e.error.stack?e.error.stack:'');
+    }
+    console.error('JS Error:', e.message, e.filename, e.lineno, e.colno, e.error);
+  }catch(_){}
+});
+
+// ===== i18n & dir =====
+function detectLang(){ try{const ls=localStorage.getItem('lang');if(ls) return ls;}catch(e){} const nav=(navigator.language||'').toLowerCase(); return nav.startsWith('ar')?'ar':'en'; }
+let currentLang = detectLang();
+function saveLang(l){ currentLang = l; try{ localStorage.setItem('lang', l);}catch(e){} }
+function applyDir(l){ document.documentElement.dir = (l==='ar')? 'rtl':'ltr'; document.documentElement.lang = (l==='ar')? 'ar':'en'; }
+function L(ar,en){ return currentLang==='ar'? ar: en; }
+applyDir(currentLang);
+
+// ===== Storage (single-device) =====
+const Storage = localStorage;
+
+// ===== Initial state =====
+const state = {
+  lang: currentLang,
+  currentUser: null, userType: '',
+  drivers: JSON.parse(Storage.getItem('drivers')||'null') || [
+    { id:1, name:'RAMIS',   phone:'971501234567', points:85, password:'1234', active:true, monthlyTarget:1000 },
+    { id:2, name:'RAMSHAD', phone:'971501234568', points:45, password:'1234', active:true, monthlyTarget:1000 },
+    { id:3, name:'MADHU',   phone:'971501234569', points:75, password:'1234', active:true, monthlyTarget:1000 },
+    { id:4, name:'SIDHIQ',  phone:'971501234570', points:25, password:'1234', active:true, monthlyTarget:1000 },
+    { id:5, name:'ASIF',    phone:'971501234571', points:90, password:'1234', active:true, monthlyTarget:1000 }
+  ],
+  trips:   JSON.parse(Storage.getItem('trips')||'null')   || [],
+  payments: JSON.parse(Storage.getItem('payments')||'null') || {}, // AED per driver (اختياري)
+  paymentsLog: JSON.parse(Storage.getItem('paymentsLog')||'null') || [], // [{id,driverId,amount,date,ref,notes}]
+  pricing: JSON.parse(Storage.getItem('pricing')||'null') || { small:20, large:30 },
+  alerts: JSON.parse(Storage.getItem('alerts')||'null') || { lossPct:20, dueAED:300 },
+  driverTab:'checkout', adminTab:'stats', adminDateFilter:'all'
+};
+
+function persist(){
+  Storage.setItem('drivers', JSON.stringify(state.drivers));
+  Storage.setItem('trips', JSON.stringify(state.trips));
+  Storage.setItem('payments', JSON.stringify(state.payments));
+  Storage.setItem('paymentsLog', JSON.stringify(state.paymentsLog));
+  Storage.setItem('pricing', JSON.stringify(state.pricing));
+  Storage.setItem('alerts', JSON.stringify(state.alerts));
+  saveLang(state.lang);
+}
+const fmtDate = d => new Date(d).toISOString().split('T')[0];
+const todayStr = () => fmtDate(new Date());
+const el = (sel,root=document)=>root.querySelector(sel);
+const els = (sel,root=document)=>Array.from(root.querySelectorAll(sel));
+
+const priceSmall = ()=> Number(state.pricing.small||20);
+const priceLarge = ()=> Number(state.pricing.large||30);
+const deepcopy = o => JSON.parse(JSON.stringify(o));
+function zeroDrivers(arr){
+  return arr.map(d=>({...d, totalBoxes:0, outstanding:0, lossRate:0, points:d.points??100 }));
+}
+
+// ===== Migration to small/large & helpers =====
+function migrateTrip(t){
+  const m = {...t};
+  if(m.outSmall==null && m.outLarge==null){
+    const out = Number(m.outBoxes||0); m.outSmall = out; m.outLarge = 0;
+  }
+  if(m.retSmall==null && m.retLarge==null){
+    const ret = Number((m.returnBoxes!=null?m.returnBoxes:0)); m.retSmall = ret; m.retLarge = 0;
+  }
+  if(m.lostSmall==null && m.lostLarge==null){
+    const os = Number(m.outSmall||0), ol=Number(m.outLarge||0);
+    const rs = Number(m.retSmall||0), rl=Number(m.retLarge||0);
+    m.lostSmall = Math.max(0, os - rs);
+    m.lostLarge = Math.max(0, ol - rl);
+  }
+  m.overReturnSmall = Math.max(0, Number(m.retSmall||0) - Number(m.outSmall||0));
+  m.overReturnLarge = Math.max(0, Number(m.retLarge||0) - Number(m.outLarge||0));
+  m.outBoxes = Number(m.outSmall||0)+Number(m.outLarge||0);
+  m.returnBoxes = Number(m.retSmall||0)+Number(m.retLarge||0);
+  m.lostBoxes = Number(m.lostSmall||0)+Number(m.lostLarge||0);
+  return m;
+}
+function filterTripsByDate(trips, filter){
+  const today = new Date();
+  if(filter==='today') return trips.filter(t=>t.date===todayStr());
+  if(filter==='week'){ const w=new Date(today.getTime()-7*24*60*60*1000); return trips.filter(t=>new Date(t.date)>=w); }
+  if(filter==='month'){ const m=today.getMonth(), y=today.getFullYear(); return trips.filter(t=>{ const dt=new Date(t.date); return dt.getMonth()===m && dt.getFullYear()===y;}); }
+  return trips;
+}
+
+// ===== Aggregations & net logic =====
+function totals(filter='all'){
+  const closed = filterTripsByDate(state.trips.filter(t=>t.status==='closed').map(migrateTrip), filter);
+  const totalOutSmall = closed.reduce((s,t)=>s+Number(t.outSmall||0),0);
+  const totalOutLarge = closed.reduce((s,t)=>s+Number(t.outLarge||0),0);
+  const totalRetSmall = closed.reduce((s,t)=>s+Number(t.retSmall||0),0);
+  const totalRetLarge = closed.reduce((s,t)=>s+Number(t.retLarge||0),0);
+  const outstandingSmall = Math.max(0, totalOutSmall - totalRetSmall);
+  const outstandingLarge = Math.max(0, totalOutLarge - totalRetLarge);
+  const totalBoxesOut = totalOutSmall+totalOutLarge;
+  const totalBoxesRet = totalRetSmall+totalRetLarge;
+  const totalBoxesOutstanding = outstandingSmall+outstandingLarge;
+  const totalLossAED = outstandingSmall*priceSmall()+outstandingLarge*priceLarge();
+  return { totalBoxesOut,totalBoxesRet,totalBoxesOutstanding,totalLossAED,totalOutSmall,totalOutLarge,totalRetSmall,totalRetLarge,outstandingSmall,outstandingLarge };
+}
+function recomputeFromTrips(){
+  state.drivers = zeroDrivers(state.drivers);
+  const closed = state.trips.filter(t=>t.status==='closed').map(migrateTrip);
+  const agg = {};
+  for(const t of closed){
+    const id = t.driverId;
+    if(!agg[id]) agg[id] = {outS:0,outL:0,retS:0,retL:0};
+    agg[id].outS += Number(t.outSmall||0);
+    agg[id].outL += Number(t.outLarge||0);
+    agg[id].retS += Number(t.retSmall||0);
+    agg[id].retL += Number(t.retLarge||0);
+  }
+  for(const d of state.drivers){
+    const a = agg[d.id] || {outS:0,outL:0,retS:0,retL:0};
+    d.totalBoxes = a.outS + a.outL;
+    const outNow = Math.max(0, (a.outS - a.retS)) + Math.max(0, (a.outL - a.retL));
+    d.outstanding = outNow;
+    d.lossRate = d.totalBoxes>0 ? Number(((outNow/d.totalBoxes)*100).toFixed(1)) : 0;
+  }
+}
+function netByDriver(filter='all'){
+  const closed = filterTripsByDate(state.trips.filter(t=>t.status==='closed').map(migrateTrip), filter);
+  const m = {};
+  for(const t of closed){
+    const id=t.driverId;
+    if(!m[id]) m[id] = { outS:0,outL:0, retS:0, retL:0 };
+    m[id].outS += Number(t.outSmall||0);
+    m[id].outL += Number(t.outLarge||0);
+    m[id].retS += Number(t.retSmall||0);
+    m[id].retL += Number(t.retLarge||0);
+  }
+  for(const id in m){
+    m[id] = {
+      netSmall: (m[id].outS - m[id].retS),
+      netLarge: (m[id].outL - m[id].retL)
+    };
+  }
+  return m;
+}
+function netByDriverNow(filter='all'){
+  const raw = netByDriver(filter);
+  const out = {};
+  const ids = state.drivers.map(d=>d.id);
+  for(const id of ids){
+    const rec = raw[id] || {netSmall:0, netLarge:0};
+    const value = (rec.netSmall*priceSmall()) + (rec.netLarge*priceLarge()); // ممكن يكون سالب
+    const paid = Number(state.payments?.[id]||0);
+    const dueAED = Math.max(0, value - paid);
+    const creditFromOverReturn = Math.max(0, -value);
+    const creditAED = Math.max(creditFromOverReturn, paid - value, 0);
+    out[id] = { netSmall: rec.netSmall, netLarge: rec.netLarge, dueAED, creditAED, paidAED: paid };
+  }
+  return out;
+}
+
+// ===== UI helpers =====
+function Topbar(title){
+  return `
+    <div class="topbar">
+      <div class="container between p-4">
+        <div class="row">
+          <button class="btn" id="logout">🚪 ${L('تسجيل الخروج','Logout')}</button>
+          ${state.userType==='admin'?'<button class="btn" id="open-control">⚙️ '+L('التحكم','Control')+'</button>':''}
+        </div>
+        <div class="row">
+          <h1 style="margin:0">${title}</h1>
+          <div class="row" style="margin-${state.lang==='ar'?'right':'left'}:12px">
+            <label class="muted" for="lang-select-top">${L('اللغة','Language')}</label>
+            <select id="lang-select-top" style="min-width:120px">
+              <option value="ar">العربية</option>
+              <option value="en">English</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+function KPI(title, value, sub){
+  return `<div class="stat"><div class="between"><span class="muted">${title}</span><span style="font-weight:800">${value}</span></div>${sub?`<div class="muted" style="font-size:12px">${sub}</div>`:''}</div>`;
+}
+function DriverCardView(d, filter='all'){
+  const rec = netByDriverNow(filter)[d.id] || {dueAED:0, creditAED:0, netSmall:0, netLarge:0};
+  return `
+    <div class="card p-4">
+      <div class="between mb-3"><b>${d.name||''}</b><span class="muted">${d.phone||''}</span></div>
+      <div class="grid grid-2 center">
+        <div><div class="muted" style="font-size:12px">${L('صافي S/L','Net S/L')}</div><div style="font-weight:600">${rec.netSmall}/${rec.netLarge}</div></div>
+        <div><div class="muted" style="font-size:12px">${L('مستحق الآن','Due now')}</div><div class="danger" style="font-weight:600">${rec.dueAED||0} AED</div></div>
+      </div>
+      <div class="between mt-2"><span class="muted">${L('رصيد دائن','Credit')}</span><b>${rec.creditAED||0} AED</b></div>
+    </div>`;
+}
+
+// ===== Screens =====
+function LoginScreen(){
+  const activeDrivers = state.drivers.filter(d=>d.active!==false);
+  return `
+  <div class="container" style="min-height:100vh;display:grid;place-items:center">
+    <div class="card p-8" style="width:min(600px,100%)">
+      <div class="between mb-4">
+        <div></div>
+        <div class="row">
+          <label class="muted" for="lang-select">${L('اللغة','Language')}</label>
+          <select id="lang-select" style="min-width:120px">
+            <option value="ar">العربية</option>
+            <option value="en">English</option>
+          </select>
+        </div>
+      </div>
+      <div class="center mb-8">
+        <h1 style="margin:0 0 8px;color:var(--primary)">${L('مخبز الصحاري','Al Sahari Bakery')}</h1>
+        <div class="muted">${L('النظام المتقدم لإدارة الصناديق','Advanced box management system')}</div>
+      </div>
+      <div class="grid grid-2 mb-6">
+        <button class="card p-4 center role-btn" data-role="driver">👨‍✈️<div class="mt-2" style="font-weight:600">${L('سائق','Driver')}</div></button>
+        <button class="card p-4 center role-btn" data-role="manager">👥<div class="mt-2" style="font-weight:600">${L('مدير','Manager')}</div></button>
+      </div>
+      <div id="driver-select" class="mb-3" style="display:none">
+        <select id="driverId">
+          <option value="">${L('اختر السائق','Select driver')}</option>
+          ${activeDrivers.map(d=>`<option value="${d.id}">${d.name}</option>`).join('')}
+        </select>
+      </div>
+      <div class="mb-3"><input type="password" id="password" placeholder="${L('كلمة المرور','Password')}" /></div>
+      <div id="login-error" class="card p-3" style="display:none;background:#fef2f2;border-color:#fecaca;color:#b91c1c">${L('كلمة المرور غير صحيحة','Wrong password')}</div>
+      <button class="btn btn-primary" id="login-btn" style="width:100%">${L('تسجيل الدخول','Sign in')}</button>
+    </div>
+  </div>`;
+}
+
+function DriverDashboard(){
+  const d = state.currentUser;
+  const myTrips = state.trips.filter(t=>t.driverId===d.id).map(migrateTrip);
+  const openTrips = myTrips.filter(t=>t.status==='open');
+  const closedTrips = myTrips.filter(t=>t.status==='closed');
+  return Topbar(L('لوحة السائق','Driver panel'))+
+  `<div class="container row">
+    <button class="tab ${state.driverTab==='checkout'?'active':''}" data-driver-tab="checkout">📦 ${L('تسجيل خروج','Checkout')}</button>
+    <button class="tab ${state.driverTab==='return'?'active':''}" data-driver-tab="return">↩️ ${L('تسجيل إرجاع','Return')}</button>
+    <button class="tab ${state.driverTab==='history'?'active':''}" data-driver-tab="history">📋 ${L('السجل','History')}</button>
+  </div>
+  <div class="container mt-4">
+    ${state.driverTab==='checkout'?DriverCheckoutView():''}
+    ${state.driverTab==='return'?DriverReturnView(openTrips):''}
+    ${state.driverTab==='history'?DriverHistoryView(openTrips,closedTrips):''}
+  </div>`;
+}
+function DriverCheckoutView(){
+  return `
+  <div class="card p-6">
+    <h2 class="mb-4" style="margin:0;font-size:18px;font-weight:800">📦 ${L('تسجيل خروج الصناديق','Record boxes checkout')}</h2>
+    <div class="grid grid-2">
+      <input type="number" id="outSmall" placeholder="${L('عدد الصناديق الصغيرة','Small boxes count')}" />
+      <input type="number" id="outLarge" placeholder="${L('عدد الصناديق الكبيرة','Large boxes count')}" />
+    </div>
+    <div class="grid mt-3" id="customers-wrap">
+      <label class="muted">${L('أسماء العملاء','Customers')}</label>
+      <div class="row">
+        <button class="btn" id="remove-customer">${L('حذف','Remove')}</button>
+        <input type="text" class="customer-input" placeholder="${L('العميل 1','Customer 1')}" />
+      </div>
+    </div>
+    <button class="btn mt-2" id="add-customer">+ ${L('إضافة عميل','Add customer')}</button>
+    <button class="btn btn-primary mt-2" id="submit-checkout">${L('تسجيل خروج','Record checkout')}</button>
+  </div>`;
+}
+function DriverReturnView(openTrips){
+  if(openTrips.length===0) return '<div class="card p-6"><div class="muted">'+L('لا توجد رحلات مفتوحة حالياً لهذا السائق.','No open trips for this driver right now.')+'</div></div>';
+  return `
+  <div class="card p-6">
+    <h2 class="mb-4" style="margin:0;font-size:18px;font-weight:800">↩️ ${L('تسجيل إرجاع الصناديق (إغلاق رحلة)','Record returns (close trip)')}</h2>
+    <div class="grid">
+      ${openTrips.slice().reverse().map(t=>`
+        <div class="card p-4">
+          <div class="between mb-2">
+            <span class="tag-open">${L('رحلة مفتوحة','Open trip')} - ${t.date}</span>
+            <span class="muted" style="font-size:12px">${L('خارج صغير/كبير','Out S/L')}: <b>${Number(t.outSmall||0)}/${Number(t.outLarge||0)}</b></span>
+          </div>
+          <div class="grid grid-2">
+            <input type="number" class="retS-input" data-trip="${t.id}" placeholder="${L('مرجع صغير','Return small')}" />
+            <input type="number" class="retL-input" data-trip="${t.id}" placeholder="${L('مرجع كبير','Return large')}" />
+          </div>
+          <input type="text" class="note-input mt-2" data-trip="${t.id}" placeholder="${L('ملاحظات (اختياري)','Notes (optional)')}" />
+          <div class="row mt-3">
+            <button class="btn btn-blue do-close" data-trip="${t.id}">${L('إغلاق الرحلة','Close trip')}</button>
+            <button class="btn btn-danger do-del" data-trip="${t.id}">${L('حذف الرحلة','Delete trip')}</button>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  </div>`;
+}
+function DriverHistoryView(openTrips,closedTrips){
+  if(openTrips.length===0 && closedTrips.length===0) return '<div class="card p-8 center muted">'+L('لا توجد رحلات مسجلة بعد','No trips yet')+'</div>';
+  return `
+  <div class="card p-4">
+    <h3 class="mb-3" style="margin:0">${L('الرحلات','Trips')}</h3>
+    <table class="table"><thead><tr><th>${L('الحالة','Status')}</th><th>${L('التاريخ','Date')}</th><th>${L('خارج S/L','Out S/L')}</th><th>${L('مرجع S/L','Return S/L')}</th><th>${L('مفقود S/L','Lost S/L')}</th><th>${L('مرجع زائد S/L','Over-return S/L')}</th><th>${L('ملاحظات','Notes')}</th></tr></thead>
+    <tbody>
+      ${openTrips.concat(closedTrips).slice().reverse().map(t=>`
+        <tr>
+          <td>${t.status==='open'?'<span class="tag-open">'+L('مفتوحة','Open')+'</span>':'<span class="tag-closed">'+L('مغلقة','Closed')+'</span>'}</td>
+          <td>${t.date}</td>
+          <td>${Number(t.outSmall||0)}/${Number(t.outLarge||0)}</td>
+          <td>${t.retSmall!=null?t.retSmall:'-'} / ${t.retLarge!=null?t.retLarge:'-'}</td>
+          <td class="danger"><b>${t.lostSmall!=null?t.lostSmall:'-'} / ${t.lostLarge!=null?t.lostLarge:'-'}</b></td>
+          <td>${t.overReturnSmall||0} / ${t.overReturnLarge||0}</td>
+          <td>${t.notes||''}</td>
+        </tr>
+      `).join('')}
+    </tbody></table>
+  </div>`;
+}
+
+// ===== Admin (Manager Pro) =====
+function trendBars(filter='week'){
+  const closed = filterTripsByDate(state.trips.filter(t=>t.status==='closed').map(migrateTrip), filter);
+  const map = new Map();
+  for(const t of closed){
+    const d = t.date;
+    const val = Math.max(0, (Number(t.outSmall||0)-Number(t.retSmall||0)))*priceSmall()
+              + Math.max(0, (Number(t.outLarge||0)-Number(t.retLarge||0)))*priceLarge();
+    map.set(d,(map.get(d)||0)+val);
+  }
+  const days = Array.from(map.keys()).sort();
+  const vals = days.map(d=>map.get(d));
+  const max = Math.max(1,...vals,1);
+  return `<div class="card p-4"><h4 style="margin:0 0 8px 0">📈 ${L('اتجاه المستحق اليومي','Daily due trend')}</h4>${
+    days.length?(`<div>${days.map((d,i)=>`
+      <div class="row" style="align-items:center;gap:10px;margin:4px 0">
+        <div class="muted" style="width:90px;font-size:12px">${d}</div>
+        <div style="background:#e5e7eb;height:10px;border-radius:8px;flex:1;overflow:hidden">
+          <div style="height:10px;width:${(vals[i]/max*100).toFixed(0)}%;background:#ef4444"></div>
+        </div>
+        <div style="width:80px;text-align:${state.lang==='ar'?'left':'right'}">${vals[i]} AED</div>
+      </div>`).join('')}</div>`) : (`<div class="muted">${L('لا يوجد بيانات في الفترة المحددة','No data in selected period')}</div>`)
+  }</div>`;
+}
+function driverLossRanking(filter='all'){
+  const closed = filterTripsByDate(state.trips.filter(t=>t.status==='closed').map(migrateTrip), filter);
+  const map = {};
+  for(const t of closed){
+    const id=t.driverId;
+    if(!map[id]) map[id]={out:0,ret:0};
+    map[id].out += Number(t.outSmall||0)+Number(t.outLarge||0);
+    map[id].ret += Number(t.retSmall||0)+Number(t.retLarge||0);
+  }
+  const arr = state.drivers.map(d=>{
+    const r = map[d.id]||{out:0,ret:0};
+    const outstanding = Math.max(0, r.out - r.ret);
+    const lr = r.out>0 ? Number(((outstanding/r.out)*100).toFixed(1)) : 0;
+    return {id:d.id, name:d.name, lossRate: lr, threshold: Number(state.alerts.lossPct||20)};
+  });
+  return arr;
+}
+function topDriversTable(filter='all', mode='worst'){
+  const arr = driverLossRanking(filter).sort((a,b)=> mode==='worst' ? (b.lossRate-a.lossRate) : (a.lossRate-b.lossRate)).slice(0,3);
+  if(!arr.length) return '<div class="muted">'+L('لا يوجد بيانات','No data')+'</div>';
+  return '<table class="table"><thead><tr><th>'+L('السائق','Driver')+'</th><th>'+L('نسبة العجز الحالي','Outstanding rate')+'</th></tr></thead><tbody>'+
+    arr.map((x,i)=>`<tr><td>${i+1}. ${x.name}</td><td>${x.lossRate}%</td></tr>`).join('')+
+  '</tbody></table>';
+}
+function StatsView(f){
+  const t = totals(f);
+  const net = netByDriverNow(f);
+  let totalDue=0,totalCredit=0;
+  for(const id in net){ totalDue += net[id].dueAED||0; totalCredit += net[id].creditAED||0; }
+  const highLoss = driverLossRanking(f).filter(x=>x.lossRate>x.threshold);
+  const highDue  = Object.entries(net).filter(([id,rec])=> (rec.dueAED||0) > Number(state.alerts.dueAED||300)).map(([id,rec])=>({id:Number(id), rec}));
+  return `
+    <div>
+      <div class="grid grid-3">
+        ${KPI(L('إجمالي الخارج','Total out'), t.totalBoxesOut, L('صغير/كبير: ','S/L: ')+t.totalOutSmall+'/'+t.totalOutLarge)}
+        ${KPI(L('إجمالي المرجع','Total return'), t.totalBoxesRet, L('صغير/كبير: ','S/L: ')+t.totalRetSmall+'/'+t.totalRetLarge)}
+        ${KPI(L('العجز الحالي','Outstanding now'), `<span class="danger">${t.totalBoxesOutstanding}</span>`, L('صغير/كبير: ','S/L: ')+t.outstandingSmall+'/'+t.outstandingLarge)}
+      </div>
+      <div class="grid grid-2 mt-4">
+        ${KPI(L('المستحق الآن (AED)','Due now (AED)'), `<span class="danger">${totalDue}</span>`)}
+        ${KPI(L('الرصيد الدائن (AED)','Overpaid credit (AED)'), totalCredit)}
+      </div>
+      <div class="grid grid-2 mt-4">
+        <div class="card p-4">
+          <h4 class="mb-2" style="margin:0">${L('أسوأ 3 عجزًا','Top 3 highest outstanding')}</h4>${topDriversTable(f, 'worst')}
+        </div>
+        <div class="card p-4">
+          <h4 class="mb-2" style="margin:0">${L('أفضل 3','Top 3 best')}</h4>${topDriversTable(f, 'best')}
+        </div>
+      </div>
+      ${trendBars(f)}
+      ${(highLoss.length||highDue.length)?(`
+        <div class="card p-4 mt-4" style="background:#fff7f7;border-color:#fecaca">
+          <h4 class="mb-2" style="margin:0">⚠️ ${L('تنبيهات','Alerts')}</h4>
+          ${highLoss.length?(`<div class="mb-2"><b>${L('عجز مرتفع:','High outstanding:')}</b> ${highLoss.map(x=>x.name+' '+x.lossRate+'%').join('، ')}</div>`):''}
+          ${highDue.length?(`<div><b>${L('مستحق مرتفع:','High due:')}</b> ${highDue.map(x=> (state.drivers.find(d=>d.id===x.id)||{}).name + ' ' + x.rec.dueAED +' AED').join('، ')}</div>`):''}
+        </div>`):''}
+    </div>`;
+}
+function OverviewView(f){
+  const net = netByDriverNow(f);
+  let totalDue=0,totalCredit=0,netSmall=0,netLarge=0;
+  for(const id in net){
+    totalDue += net[id].dueAED||0;
+    totalCredit += net[id].creditAED||0;
+    netSmall += net[id].netSmall||0;
+    netLarge += net[id].netLarge||0;
+  }
+  return `
+  <div>
+    <div class="grid grid-2">
+      ${KPI(L('إجمالي المستحق الآن (AED)','Total due now (AED)'), `<b class="danger">${totalDue}</b>`)}
+      ${KPI(L('الرصيد الدائن الكلي (AED)','Total credit (AED)'), totalCredit)}
+    </div>
+    <div class="card p-4 mt-3">
+      <h4 class="mb-2" style="margin:0">${L('الصافي المدين حسب الحجم','Net debit by size')}</h4>
+      <div class="grid grid-2">
+        ${KPI(L('صغير (×'+priceSmall()+')','Small (×'+priceSmall()+')'), netSmall+' → '+(netSmall*priceSmall())+' AED')}
+        ${KPI(L('كبير (×'+priceLarge()+')','Large (×'+priceLarge()+')'), netLarge+' → '+(netLarge*priceLarge())+' AED')}
+      </div>
+    </div>
+    <div class="card p-4 mt-3">
+      <h4 class="mb-2" style="margin:0">${L('أداء السائقين (الفترة المختارة)','Drivers performance (selected period)')}</h4>
+      <div class="grid">${state.drivers.map(d=>DriverCardView(d,f)).join('')}</div>
+    </div>
+  </div>`;
+}
+function DetailedView(filter='all'){
+  const closed = filterTripsByDate(state.trips.filter(t=>t.status==='closed').map(migrateTrip), filter);
+  return `<div class="card p-4">
+    <div class="between mb-3">
+      <h3 style="margin:0">📊 ${L('التحليل التفصيلي','Detailed analysis')}</h3>
+      <div class="row">
+        <button class="btn btn-blue" id="export-csv-report">CSV</button>
+        <button class="btn btn-blue" id="export-json-report">JSON</button>
+        <button class="btn" id="print-report">🖨️ ${L('طباعة','Print')}</button>
+      </div>
+    </div>
+    <div class="list">
+      ${closed.length? closed.slice().reverse().map(t=>{
+        const dr = state.drivers.find(d=>d.id===t.driverId);
+        const amount = Math.max(0,(Number(t.outSmall||0)-Number(t.retSmall||0)))*priceSmall() + Math.max(0,(Number(t.outLarge||0)-Number(t.retLarge||0)))*priceLarge();
+        return `
+          <div class="card p-3">
+            <div class="between mb-2">
+              <div class="danger" style="font-weight:800">${amount} AED</div>
+              <div style="text-align:right"><div style="font-weight:600">${dr?dr.name:''}</div><div class="muted" style="font-size:12px">${t.date}</div></div>
+            </div>
+            <div class="row center" style="justify-content:space-around;font-size:13px">
+              <div>${L('خارج S/L:','Out S/L:')} <b>${t.outSmall}/${t.outLarge}</b></div>
+              <div>${L('مرجع S/L:','Return S/L:')} <b>${(t.retSmall!=null)?t.retSmall:'-'} / ${(t.retLarge!=null)?t.retLarge:'-'}</b></div>
+              <div class="danger">${L('مفقود S/L:','Lost S/L:')} <b>${(t.lostSmall!=null)?t.lostSmall:'-'} / ${(t.lostLarge!=null)?t.lostLarge:'-'}</b></div>
+              <div>${L('مرجع زائد S/L:','Over-return S/L:')} <b>${(t.overReturnSmall||0)} / ${(t.overReturnLarge||0)}</b></div>
+            </div>
+          </div>`;
+      }).join('') : '<div class="muted">'+L('لا يوجد بيانات','No data')+'</div>'}
+    </div>
+  </div>`;
+}
+
+// ===== Statements: helpers =====
+function _d(s){ try{ return new Date(s); }catch(_){ return new Date('1970-01-01'); } }
+function inRange(dateStr, fromStr, toStr){
+  const d=_d(dateStr); if(fromStr){ if(d < _d(fromStr)) return false; }
+  if(toStr){ const to=_d(toStr); to.setHours(23,59,59,999); if(d>to) return false; }
+  return true;
+}
+
+// ===== Build advanced driver statement with opening/net/filters/grouping/notes =====
+function buildDriverStatementPro(driverId, opts){
+  const { from=null, to=null, type='all', group='none' } = opts||{};
+  const d = state.drivers.find(x=>x.id===driverId);
+  if(!d) return { html: '<div class="muted">'+L('سائق غير موجود','Driver not found')+'</div>', rows: [] };
+
+  const rawTripsAll = state.trips.filter(t=>t.status==='closed' && t.driverId===driverId).map(migrateTrip);
+  const payAll = (state.paymentsLog||[]).filter(p=>p.driverId===driverId);
+
+  // Opening (net before "from")
+  let openS=0, openL=0;
+  if(from){
+    for(const t of rawTripsAll){
+      if(_d(t.date) < _d(from)){
+        openS += Number(t.outSmall||0) - Number(t.retSmall||0);
+        openL += Number(t.outLarge||0) - Number(t.retLarge||0);
+      }
+    }
+  }
+  const openAED = openS*priceSmall() + openL*priceLarge();
+
+  // Filtered lists
+  const trips = rawTripsAll.filter(t=> inRange(t.date, from, to));
+  const pays  = payAll.filter(p=> inRange((p.date||'').slice(0,10), from, to));
+
+  const entries = [];
+  function pushLine(o){ entries.push(o); }
+
+  for(const t of trips){
+    const sOutP = Number(t.priceSmallAtOut || state.pricing.small || 20);
+    const lOutP = Number(t.priceLargeAtOut || state.pricing.large || 30);
+    const sRetP = Number(t.priceSmallAtRet || state.pricing.small || 20);
+    const lRetP = Number(t.priceLargeAtRet || state.pricing.large || 30);
+
+    if(type==='all' || type==='checkout'){
+      const sAmt = Number(t.outSmall||0) * sOutP;
+      const lAmt = Number(t.outLarge||0) * lOutP;
+      const debit = sAmt + lAmt;
+      pushLine({date:t.date,typeKey:'checkout',tripId:t.id,
+        sQty:Number(t.outSmall||0), sPrice:sOutP, sAmt,
+        lQty:Number(t.outLarge||0), lPrice:lOutP, lAmt,
+        debit, credit:0, details:L('خروج صناديق','Boxes checkout'), notes:t.notes||''});
+    }
+    if((type==='all' || type==='return') && (t.retSmall!=null || t.retLarge!=null)){
+      const sAmt = Number(t.retSmall||0) * sRetP;
+      const lAmt = Number(t.retLarge||0) * lRetP;
+      const credit = sAmt + lAmt;
+      pushLine({date:t.date,typeKey:'return',tripId:t.id,
+        sQty:Number(t.retSmall||0), sPrice:sRetP, sAmt,
+        lQty:Number(t.retLarge||0), lPrice:lRetP, lAmt,
+        debit:0, credit, details:L('مرجع صناديق','Boxes return'), notes:t.notes||''});
+    }
+  }
+  if(type==='all' || type==='payment'){
+    for(const p of pays){
+      pushLine({date:(p.date||'').slice(0,10),typeKey:'payment',tripId:null,
+        sQty:0,sPrice:0,sAmt:0,lQty:0,lPrice:0,lAmt:0,
+        debit:0, credit:Number(p.amount||0),
+        details:(p.ref? L('تحصيل رقم ','Receipt #')+p.ref : L('تحصيل','Collection')),
+        notes:p.notes||'', who:p.user||'accountant'});
+    }
+  }
+
+  const order = {checkout:1, return:2, payment:3};
+  entries.sort((a,b)=> a.date===b.date ? (order[a.typeKey]-order[b.typeKey]) : a.date.localeCompare(b.date));
+
+  let balAED = Number(openAED||0);
+  let runS = Number(openS||0);
+  let runL = Number(openL||0);
+  const rows = [];
+  rows.push({isOpening:true, date: from? from : L('كل الفترات','All time'), typeKey:'opening',
+             sQty:openS, lQty:openL, sPrice:0, lPrice:0, sAmt:0, lAmt:0,
+             debit:0, credit:0, balance: balAED, netSmall: runS, netLarge: runL, details:L('رصيد افتتاحي','Opening balance')});
+
+  for(const e of entries){
+    if(e.typeKey==='checkout'){ runS += e.sQty; runL += e.lQty; }
+    if(e.typeKey==='return'){   runS -= e.sQty; runL -= e.lQty; }
+    balAED += Number(e.debit||0) - Number(e.credit||0);
+    rows.push({...e, balance: balAED, netSmall: runS, netLarge: runL});
+  }
+
+  const totals = entries.reduce((acc,e)=>{
+    acc.sOut += (e.typeKey==='checkout'? e.sQty:0);
+    acc.lOut += (e.typeKey==='checkout'? e.lQty:0);
+    acc.sRet += (e.typeKey==='return'? e.sQty:0);
+    acc.lRet += (e.typeKey==='return'? e.lQty:0);
+    acc.debit += Number(e.debit||0);
+    acc.credit += Number(e.credit||0);
+    return acc;
+  }, {sOut:0,lOut:0,sRet:0,lRet:0,debit:0,credit:0});
+  const netS = (totals.sOut - totals.sRet);
+  const netL = (totals.lOut - totals.lRet);
+  const periodDue = Math.max(0, totals.debit - totals.credit);
+  const periodCredit = Math.max(0, totals.credit - totals.debit);
+
+  function renderRow(r){
+    if(r.isOpening){
+      return `<tr style="background:#fff7f7">
+        <td>${r.date}</td>
+        <td>${L('Opening','Opening')}</td>
+        <td>${L('—','—')}</td>
+        <td></td><td></td><td></td>
+        <td></td><td></td><td></td>
+        <td>${r.balance||0}</td>
+        <td>${r.netSmall}/${r.netLarge}</td>
+        <td></td>
+      </tr>`;
+    }
+    const typeLabel = r.typeKey==='checkout' ? L('Checkout','Checkout')
+                    : r.typeKey==='return' ? L('Return','Return')
+                    : L('Payment','Payment');
+    const editable = (r.tripId && (r.typeKey==='checkout' || r.typeKey==='return'));
+    return `<tr>
+      <td>${r.date}</td>
+      <td>${typeLabel}</td>
+      <td class="muted">${r.details||''}</td>
+      <td>${r.sQty||''}</td><td>${r.sPrice||''}</td><td>${r.sAmt||''}</td>
+      <td>${r.lQty||''}</td><td>${r.lPrice||''}</td><td>${r.lAmt||''}</td>
+      <td>${r.debit||''}</td><td>${r.credit||''}</td>
+      <td>${r.balance||0} <div class="muted" style="font-size:11px">${L('صافي S/L:','Net S/L:')} ${r.netSmall}/${r.netLarge}</div></td>
+      <td>${editable ? `<input class="note-edit" data-trip="${r.tripId}" value="${(r.notes||'').replace(/"/g,'&quot;')}" style="min-width:140px"/> <button class="btn" data-action="save-note" data-trip="${r.tripId}">${L('حفظ','Save')}</button>` : (r.notes||'')}</td>
+    </tr>`;
+  }
+
+  const body = rows.map(renderRow).join('');
+  const table = `
+    <table class="table">
+      <thead>
+        <tr>
+          <th>${L('Date','Date')}</th>
+          <th>${L('Type','Type')}</th>
+          <th>${L('Details','Details')}</th>
+          <th>${L('S qty','S qty')}</th><th>${L('S price','S price')}</th><th>${L('S amount','S amount')}</th>
+          <th>${L('L qty','L qty')}</th><th>${L('L price','L price')}</th><th>${L('L amount','L amount')}</th>
+          <th>${L('Debit (AED)','Debit (AED)')}</th>
+          <th>${L('Credit (AED)','Credit (AED)')}</th>
+          <th>${L('Balance','Balance')}</th>
+          <th>${L('Notes','Notes')}</th>
+        </tr>
+      </thead>
+      <tbody>${body}</tbody>
+    </table>`;
+
+  const summary = `
+    <div class="card p-3 mt-3" style="background:#ecfdf5">
+      <b>${L('ملخص الفترة','Period summary')}</b>
+      <div class="grid grid-2">
+        <div>${L('خروج S/L:','Out S/L:')} ${totals.sOut}/${totals.lOut} — ${L('مرجع S/L:','Return S/L:')} ${totals.sRet}/${totals.lRet}</div>
+        <div>${L('الصافي S/L:','Net S/L:')} <b>${netS}/${netL}</b></div>
+      </div>
+      <div class="grid grid-2 mt-2">
+        <div>${L('مدين الفترة','Period debit')}: ${totals.debit}</div>
+        <div>${L('دائن الفترة','Period credit')}: ${totals.credit}</div>
+      </div>
+      <div class="grid grid-2 mt-1">
+        <div>${L('مستحق الفترة (AED)','Due this period (AED)')}: <b class="danger">${periodDue}</b></div>
+        <div>${L('رصيد دائن الفترة (AED)','Credit this period (AED)')}: <b>${periodCredit}</b></div>
+      </div>
+    </div>`;
+
+  const head = `
+    <div class="card p-4">
+      <div class="between">
+        <div>
+          <h3 style="margin:0">${L('كشف حساب السائق','Driver statement')}</h3>
+          <div class="muted">${d.name} — ${d.phone||''}</div>
+        </div>
+        <div class="muted">${L('الفترة:','Period:')} ${from?from:'…'} → ${to?to:'…'}</div>
+      </div>
+      <div class="mt-3">${table}</div>
+      ${summary}
+    </div>`;
+
+  return { html: head, rows };
+}
+
+function StatementsView(){
+  const driverOpts = state.drivers.map(d=>`<option value="${d.id}">${d.name}</option>`).join('');
+  return `
+    <div class="card p-4">
+      <div class="between mb-3">
+        <div class="row" style="flex-wrap:wrap;gap:8px">
+          <label class="muted">${L('السائق:','Driver:')}</label>
+          <select id="stmtDriver"><option value="">${L('اختر','Select')}</option>${driverOpts}</select>
+
+          <label class="muted">${L('من','From')}</label><input type="date" id="stmtFrom" />
+          <label class="muted">${L('إلى','To')}</label><input type="date" id="stmtTo" />
+
+          <label class="muted">${L('النوع','Type')}</label>
+          <select id="stmtType">
+            <option value="all">${L('الكل','All')}</option>
+            <option value="checkout">${L('خروج','Checkout')}</option>
+            <option value="return">${L('مرجع','Return')}</option>
+            <option value="payment">${L('تحصيل','Payment')}</option>
+          </select>
+
+          <button class="btn" id="stmt-apply">✅ ${L('تطبيق','Apply')}</button>
+        </div>
+
+        <div class="row">
+          <button class="btn" id="stmt-print">${L('طباعة الكشف','Print statement')}</button>
+          <button class="btn btn-blue" id="stmt-export">${L('تصدير CSV','Export CSV')}</button>
+        </div>
+      </div>
+
+      <div id="stmtArea" class="card p-4" style="background:#f8fafc">
+        ${L('اختر الإعدادات ثم اضغط تطبيق','Choose filters then click Apply')}
+      </div>
+    </div>`;
+}
+
+// ===== Drivers manage view =====
+function DriversManageView(){
+  return `
+    <div class="card p-4">
+      <div class="between mb-3">
+        <button class="btn btn-green" id="show-add-driver">+ ${L('إضافة سائق جديد','Add new driver')}</button>
+        <h3 style="margin:0">${L('إدارة السائقين','Manage drivers')}</h3>
+      </div>
+      <div id="add-driver-form" class="card p-4" style="display:none;background:#f8fafc">
+        <h4 class="mb-3" style="margin:0">${L('إضافة سائق جديد','Add new driver')}</h4>
+        <div class="grid grid-2">
+          <input id="d-name" placeholder="${L('اسم السائق','Driver name')}" />
+          <input id="d-phone" placeholder="${L('رقم الهاتف','Phone number')}" />
+          <input id="d-pass" placeholder="${L('كلمة المرور','Password')}" />
+          <input id="d-target" type="number" placeholder="${L('الهدف الشهري','Monthly target')}" value="1000" />
+        </div>
+        <div class="row mt-3"><button class="btn" id="cancel-add">${L('إلغاء','Cancel')}</button><button class="btn btn-green" id="do-add">${L('إضافة','Add')}</button></div>
+      </div>
+      <div id="edit-driver-form" class="card p-4" style="display:none;background:#eff6ff">
+        <h4 class="mb-3" style="margin:0">${L('تعديل بيانات السائق','Edit driver')}</h4>
+        <input type="hidden" id="e-id" />
+        <div class="grid grid-2">
+          <input id="e-name" placeholder="${L('اسم السائق','Driver name')}" />
+          <input id="e-phone" placeholder="${L('رقم الهاتف','Phone number')}" />
+          <input id="e-pass" placeholder="${L('كلمة المرور','Password')}" />
+          <input id="e-target" type="number" placeholder="${L('الهدف الشهري','Monthly target')}" />
+        </div>
+        <div class="row mt-3"><button class="btn" id="cancel-edit">${L('إلغاء','Cancel')}</button><button class="btn btn-blue" id="do-edit">${L('حفظ التغييرات','Save changes')}</button></div>
+      </div>
+      <div class="card p-4 mt-4">
+        <h4 class="mb-3" style="margin:0">👥 ${L('السائقون','Drivers')}</h4>
+        <div id="drivers-list"></div>
+      </div>
+    </div>`;
+}
+
+// ===== Control Panel =====
+function ControlPanelView(){
+  return `
+    <div class="card p-4">
+      <h3 class="mb-2" style="margin:0">${L('لوحة التحكم','Control panel')}</h3>
+
+      <div class="grid grid-3">
+        <!-- Pricing -->
+        <div class="card p-4">
+          <h4 style="margin:0 0 8px 0">${L('الأسعار','Pricing')}</h4>
+          <div class="grid grid-2">
+            <div>
+              <label class="muted">${L('سعر الصغير','Small price')}</label>
+              <input id="pSmall" type="number" value="${priceSmall()}" />
+            </div>
+            <div>
+              <label class="muted">${L('سعر الكبير','Large price')}</label>
+              <input id="pLarge" type="number" value="${priceLarge()}" />
+            </div>
+          </div>
+          <button class="btn btn-blue mt-2" id="save-prices">${L('حفظ الأسعار','Save prices')}</button>
+        </div>
+
+        <!-- Alerts -->
+        <div class="card p-4">
+          <h4 style="margin:0 0 8px 0">${L('التنبيهات','Alerts')}</h4>
+          <div class="grid grid-2">
+            <div>
+              <label class="muted">${L('حد نسبة العجز (%)','Outstanding rate threshold (%)')}</label>
+              <input id="aLoss" type="number" value="${Number(state.alerts.lossPct||20)}" />
+            </div>
+            <div>
+              <label class="muted">${L('حد المستحق (AED)','Due threshold (AED)')}</label>
+              <input id="aDue" type="number" value="${Number(state.alerts.dueAED||300)}" />
+            </div>
+          </div>
+          <button class="btn btn-blue mt-2" id="save-alerts">${L('حفظ التنبيهات','Save alerts')}</button>
+        </div>
+
+        <!-- Backup -->
+        <div class="card p-4">
+          <h4 style="margin:0 0 8px 0">${L('نسخة احتياطية','Backup')}</h4>
+          <div class="row">
+            <button class="btn btn-blue" id="export-json">${L('تصدير JSON','Export JSON')}</button>
+            <label class="btn">
+              ${L('استيراد JSON','Import JSON')}
+              <input type="file" id="import-json" accept="application/json" style="display:none" />
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Danger zone -->
+      <div class="card p-4 mt-4" style="background:#fff7f7">
+        <h4 style="margin:0 0 8px 0" class="danger">${L('عمليات خطرة','Danger zone')}</h4>
+        <div class="row">
+          <button class="btn btn-warning" id="clear-trips">${L('مسح كل الرحلات فقط','Clear trips only')}</button>
+          <button class="btn btn-danger" id="reset-all">${L('مسح كل البيانات والبدء من جديد','Reset all data')}</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ===== Admin Dashboard =====
+function AdminDashboard(){
+  const f = state.adminDateFilter;
+  const tab = state.adminTab;
+
+  return Topbar(L('لوحة الإدارة — نسخة احترافية','Admin panel — Pro'))+
+  `<div class="container mt-4 grid">
+    <div class="card p-2"><div class="between">
+      <div class="row">
+        <button class="tab ${tab==='stats'?'active':''}" data-admin-tab="stats">📊 ${L('إحصاءات','Stats')}</button>
+        <button class="tab ${tab==='overview'?'active':''}" data-admin-tab="overview">💰 ${L('نظرة مالية','Overview')}</button>
+        <button class="tab ${tab==='detailed'?'active':''}" data-admin-tab="detailed">📈 ${L('تفصيلي','Detailed')}</button>
+        <button class="tab ${tab==='statements'?'active':''}" data-admin-tab="statements">📄 ${L('كشف الحساب','Statements')}</button>
+        <button class="tab ${tab==='drivers'?'active':''}" data-admin-tab="drivers">👥 ${L('السائقون','Drivers')}</button>
+        <button class="tab ${tab==='control'?'active':''}" data-admin-tab="control">⚙️ ${L('التحكم','Control')}</button>
+      </div>
+      <div class="row">
+        <select id="adminDateFilter" style="min-width:140px">
+          <option value="all"${f==='all'?' selected':''}>${L('جميع الفترات','All time')}</option>
+          <option value="today"${f==='today'?' selected':''}>${L('اليوم','Today')}</option>
+          <option value="week"${f==='week'?' selected':''}>${L('هذا الأسبوع','This week')}</option>
+          <option value="month"${f==='month'?' selected':''}>${L('هذا الشهر','This month')}</option>
+        </select>
+      </div>
+    </div></div>
+    ${tab==='stats' ? StatsView(f) : ''}
+    ${tab==='overview' ? OverviewView(f) : ''}
+    ${tab==='detailed' ? DetailedView(f) : ''}
+    ${tab==='statements' ? StatementsView() : ''}
+    ${tab==='drivers' ? DriversManageView() : ''}
+    ${tab==='control' ? ControlPanelView() : ''}
+  </div>`;
+}
+
+// ===== Trips CRUD with snapshots =====
+function addCheckoutTrip({driverId, outSmall=0, outLarge=0, customers=[]}){
+  const t = {
+    id: Date.now(),
+    driverId: Number(driverId),
+    outSmall: Number(outSmall)||0,
+    outLarge: Number(outLarge)||0,
+    // snapshot للأسعار عند الخروج
+    priceSmallAtOut: Number(state.pricing?.small||20),
+    priceLargeAtOut: Number(state.pricing?.large||30),
+
+    // ستُملأ عند الإغلاق + snapshot للأسعار عند المرجع
+    retSmall: null,
+    retLarge: null,
+    priceSmallAtRet: null,
+    priceLargeAtRet: null,
+
+    lostSmall: null,
+    lostLarge: null,
+    overReturnSmall: 0,
+    overReturnLarge: 0,
+
+    customers: Array.isArray(customers)? customers.filter(Boolean): [],
+    notes: '',
+    status: 'open',
+    date: todayStr(),
+    timestamp: new Date().toISOString()
+  };
+  state.trips = [...state.trips, t];
+  persist(); render();
+  alert(L('تم تسجيل الخروج بنجاح ✅','Checkout recorded ✅'));
+}
+function closeTrip({tripId, retSmall=0, retLarge=0, notes=''}){
+  state.trips = state.trips.map(t=>{
+    if(t.id!==tripId) return t;
+    const os = Number(t.outSmall||0),  ol = Number(t.outLarge||0);
+    const rs = Number(retSmall||0),    rl = Number(retLarge||0);
+    const lostS = Math.max(0, os - rs);
+    const lostL = Math.max(0, ol - rl);
+    const overS = Math.max(0, rs - os);
+    const overL = Math.max(0, rl - ol);
+    return {
+      ...t,
+      retSmall: rs, retLarge: rl,
+      // snapshot للسعر عند المرجع
+      priceSmallAtRet: Number(state.pricing?.small||20),
+      priceLargeAtRet: Number(state.pricing?.large||30),
+
+      lostSmall: lostS, lostLarge: lostL,
+      overReturnSmall: overS, overReturnLarge: overL,
+      notes: notes || t.notes,
+      status: 'closed'
+    };
+  });
+  recomputeFromTrips();
+  persist(); render();
+  alert(L('تم تسجيل الإرجاع وإغلاق الرحلة ✅','Return recorded and trip closed ✅'));
+}
+function deleteTrip(id){
+  if(!confirm(L('حذف هذه الرحلة؟','Delete this trip?'))) return;
+  state.trips = state.trips.filter(t=>t.id!==id);
+  recomputeFromTrips(); persist(); render();
+}
+function updateTrip(id, updates){
+  state.trips = state.trips.map(t=>t.id===id ? ({...t, ...updates}) : t);
+  if( (updates && (updates.status==='closed' || 'retSmall' in updates || 'retLarge' in updates)) ){
+    recomputeFromTrips();
+  }
+  persist(); render();
+}
+
+// ===== App switch & render =====
+function App(){
+  document.title = L('مخبز الصحاري — إدارة الصناديق','Al Sahari Bakery — Box Management');
+  if(!state.currentUser) return LoginScreen();
+  if(state.userType==='driver') return DriverDashboard();
+  if(state.userType==='admin') return AdminDashboard();
+  return '';
+}
+
+function render(){
+  applyDir(state.lang);
+  const root = document.getElementById('app');
+  root.innerHTML = App();
+
+  const ls = el('#lang-select'); if(ls){ ls.value = state.lang; ls.addEventListener('change', (e)=>{ state.lang=e.target.value; saveLang(state.lang); render(); }); }
+  const lst = el('#lang-select-top'); if(lst){ lst.value = state.lang; lst.addEventListener('change', (e)=>{ state.lang=e.target.value; saveLang(state.lang); render(); }); }
+
+  if(!state.currentUser){
+    els('.role-btn').forEach(b=>b.addEventListener('click', ()=>{ state.selectedRole=b.dataset.role; el('#driver-select').style.display = b.dataset.role==='driver' ? 'block' : 'none'; }));
+    el('#login-btn').addEventListener('click', ()=>{
+      const pass = el('#password').value.trim(); const err = el('#login-error'); err.style.display='none'; const role = state.selectedRole;
+      if(role==='driver'){
+        const id = Number(el('#driverId').value); const d = state.drivers.find(x=>x.id===id);
+        if(d && d.password===pass && d.active!==false){ state.currentUser=d; state.userType='driver'; render(); return; }
+        err.textContent = (d && d.active===false) ? L('حساب السائق غير مفعل','Driver account is disabled') : L('كلمة المرور غير صحيحة','Wrong password'); err.style.display='block'; return;
+      }
+      if(role==='manager' && pass==='manager123'){ state.currentUser={name:'admin'}; state.userType='admin'; render(); return; }
+      err.style.display='block';
+    });
+    return;
+  }
+
+  const logout = el('#logout'); if(logout){ logout.addEventListener('click', ()=>{ state.currentUser=null; state.userType=''; render(); }); }
+
+  const adf = el('#adminDateFilter'); if(adf){ adf.addEventListener('change', ()=>{ state.adminDateFilter = adf.value; render(); }); }
+
+  if(state.userType==='driver'){
+    els('[data-driver-tab]').forEach(t=>t.addEventListener('click',()=>{ state.driverTab=t.dataset.driverTab; render(); }));
+    const addCust = el('#add-customer'); if(addCust){
+      addCust.addEventListener('click', ()=>{
+        const wrap = el('#customers-wrap'); const row = document.createElement('div'); row.className='row'; row.innerHTML = '<button class="btn remove-cust">'+L('حذف','Remove')+'</button><input type="text" class="customer-input" placeholder="'+L('العميل','Customer')+'">'; wrap.appendChild(row); row.querySelector('.remove-cust').addEventListener('click', ()=>row.remove());
+      });
+      const firstRemove = el('#remove-customer'); if(firstRemove){ firstRemove.addEventListener('click', ()=>{ const rows = els('#customers-wrap .row'); if(rows.length>1) rows[rows.length-1].remove(); }); }
+      const submitCheckout = el('#submit-checkout');
+      if(submitCheckout){
+        submitCheckout.addEventListener('click', ()=>{
+          const os = Number(el('#outSmall')?.value||0);
+          const ol = Number(el('#outLarge')?.value||0);
+          if(!os && !ol){ alert(L('يرجى إدخال عدد الصناديق الخارجة','Please enter outgoing boxes count')); return; }
+          const customers = els('.customer-input').map(i=>i.value.trim()).filter(Boolean);
+          addCheckoutTrip({ driverId: state.currentUser.id, outSmall: os, outLarge: ol, customers });
+        });
+      }
+    }
+    els('.do-close').forEach(btn=>btn.addEventListener('click', ()=>{
+      const id = Number(btn.dataset.trip);
+      const rs = Number((document.querySelector('.retS-input[data-trip="'+id+'"]')||{}).value||0);
+      const rl = Number((document.querySelector('.retL-input[data-trip="'+id+'"]')||{}).value||0);
+      const noteInput = document.querySelector('.note-input[data-trip="'+id+'"]');
+      if(rs<0 || rl<0){ alert(L('المرجع لا يمكن أن يكون سالباً','Return cannot be negative')); return; }
+      closeTrip({ tripId:id, retSmall: rs, retLarge: rl, notes: (noteInput&&noteInput.value)||'' });
+    }));
+    els('.do-del').forEach(btn=>btn.addEventListener('click', ()=>{ const id = Number(btn.dataset.trip); deleteTrip(id); }));
+  }
+
+  if(state.userType==='admin'){
+    const openCtl = el('#open-control'); if(openCtl){ openCtl.addEventListener('click', ()=>{ state.adminTab='control'; render(); }); }
+    els('[data-admin-tab]').forEach(t=>t.addEventListener('click',()=>{ state.adminTab=t.dataset.adminTab; render(); }));
+
+    const sp = el('#save-prices'); if(sp){ sp.addEventListener('click', ()=>{
+      const ps = Number(el('#pSmall').value||20), pl = Number(el('#pLarge').value||30);
+      state.pricing.small=ps; state.pricing.large=pl; persist(); render(); alert(L('تم حفظ الأسعار','Prices saved'));
+    }); }
+    const sa = el('#save-alerts'); if(sa){ sa.addEventListener('click', ()=>{
+      const lp = Number(el('#aLoss').value||20), da = Number(el('#aDue').value||300);
+      state.alerts.lossPct=lp; state.alerts.dueAED=da; persist(); render(); alert(L('تم حفظ التنبيهات','Alerts saved'));
+    }); }
+
+    // Backup export/import
+    const exportJSON = el('#export-json'); if(exportJSON){ exportJSON.addEventListener('click', ()=>{
+      const data = { date: new Date().toISOString(), drivers: state.drivers, trips: state.trips, payments: state.payments, paymentsLog: state.paymentsLog, pricing: state.pricing, alerts: state.alerts };
+      const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download='alsahari-backup.json'; a.click();
+    }); }
+    const importJson = el('#import-json'); if(importJson){ importJson.addEventListener('change', (e)=>{
+      const file=e.target.files&&e.target.files[0]; if(!file) return; const reader=new FileReader();
+      reader.onload = (ev)=>{ try{
+        const d=JSON.parse(ev.target.result);
+        if(d.drivers) state.drivers=d.drivers;
+        if(d.trips) state.trips=d.trips;
+        if(d.payments) state.payments=d.payments;
+        if(d.paymentsLog) state.paymentsLog=d.paymentsLog;
+        if(d.pricing) state.pricing=d.pricing;
+        if(d.alerts) state.alerts=d.alerts;
+        recomputeFromTrips(); persist(); render(); alert(L('تم الاستيراد بنجاح','Imported successfully'));
+      }catch(err){ alert(L('فشل الاستيراد: ملف غير صالح','Import failed: invalid file')); } };
+      reader.readAsText(file);
+    }); }
+
+    const clearTripsBtn = el('#clear-trips'); if(clearTripsBtn){ clearTripsBtn.addEventListener('click', ()=>{
+      if(!confirm(L('مسح جميع الرحلات؟','Clear all trips?'))) return;
+      state.trips = []; recomputeFromTrips(); persist(); render();
+    }); }
+    const resetBtn = el('#reset-all'); if(resetBtn){ resetBtn.addEventListener('click', ()=>{
+      if(!confirm(L('هل أنت متأكد من مسح كل البيانات؟','Are you sure to reset all data?'))) return;
+      localStorage.removeItem('drivers'); localStorage.removeItem('trips'); localStorage.removeItem('payments'); localStorage.removeItem('paymentsLog'); localStorage.removeItem('pricing'); localStorage.removeItem('alerts');
+      state.drivers = [
+        { id:1, name:'RAMIS',   phone:'971501234567', points:85, password:'1234', active:true, monthlyTarget:1000 },
+        { id:2, name:'RAMSHAD', phone:'971501234568', points:45, password:'1234', active:true, monthlyTarget:1000 },
+        { id:3, name:'MADHU',   phone:'971501234569', points:75, password:'1234', active:true, monthlyTarget:1000 },
+        { id:4, name:'SIDHIQ',  phone:'971501234570', points:25, password:'1234', active:true, monthlyTarget:1000 },
+        { id:5, name:'ASIF',    phone:'971501234571', points:90, password:'1234', active:true, monthlyTarget:1000 }
+      ];
+      state.trips=[]; state.payments={}; state.paymentsLog=[]; state.pricing={small:20, large:30}; state.alerts={lossPct:20, dueAED:300};
+      state.currentUser=null; state.userType=''; state.adminTab='stats'; state.adminDateFilter='all';
+      persist(); render();
+    }); }
+
+    // Reports export/print
+    const exCSV = el('#export-csv-report'); if(exCSV){ exCSV.addEventListener('click', ()=>{
+      const f = state.adminDateFilter;
+      const closed = filterTripsByDate(state.trips.filter(t=>t.status==='closed').map(migrateTrip), f);
+      const headers = ['date','driver','outSmall','outLarge','retSmall','retLarge','lostSmall','lostLarge','overReturnSmall','overReturnLarge'];
+      const rows = closed.map(t=>{
+        const dr = (state.drivers.find(d=>d.id===t.driverId)||{name:''}).name;
+        return [t.date, dr, t.outSmall, t.outLarge, t.retSmall, t.retLarge, t.lostSmall, t.lostLarge, t.overReturnSmall, t.overReturnLarge].join(',');
+      });
+      const csv = headers.join(',') + '\n' + rows.join('\n');
+      const blob = new Blob([csv], {type:'text/csv'});
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download='alsahari-report.csv'; a.click();
+    }); }
+    const exJSON = el('#export-json-report'); if(exJSON){ exJSON.addEventListener('click', ()=>{
+      const f = state.adminDateFilter;
+      const closed = filterTripsByDate(state.trips.filter(t=>t.status==='closed').map(migrateTrip), f);
+      const data = { filter:f, trips: closed };
+      const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download='alsahari-report.json'; a.click();
+    }); }
+    const printBtn = el('#print-report'); if(printBtn){ printBtn.addEventListener('click', ()=>{ window.print(); }); }
+
+    // Drivers manage
+    const showAdd = el('#show-add-driver'); if(showAdd){ showAdd.addEventListener('click', ()=>{ el('#add-driver-form').style.display='block'; }); }
+    const cancelAdd = el('#cancel-add'); if(cancelAdd){ cancelAdd.addEventListener('click', ()=>{ el('#add-driver-form').style.display='none'; }); }
+    const doAdd = el('#do-add'); if(doAdd){ doAdd.addEventListener('click', ()=>{
+      addDriver({ name: el('#d-name').value.trim(), phone: el('#d-phone').value.trim(), password: el('#d-pass').value.trim(), monthlyTarget: Number(el('#d-target').value||1000) });
+      el('#add-driver-form').style.display='none';
+    }); }
+
+    const listDiv = el('#drivers-list');
+    if(listDiv){
+      listDiv.innerHTML = state.drivers.map(d=>`
+        <div class="card p-3 mb-2">
+          <div class="between mb-2"><b>${d.name}</b><span class="muted">${d.phone||''}</span></div>
+          <div class="row">
+            <button class="btn" data-action="edit-driver" data-id="${d.id}">${L('تعديل','Edit')}</button>
+            <button class="btn btn-danger" data-action="delete-driver" data-id="${d.id}">${L('حذف','Delete')}</button>
+          </div>
+        </div>`).join('');
+      listDiv.addEventListener('click', (e)=>{
+        const btn = e.target.closest('button'); if(!btn) return; const id = Number(btn.dataset.id);
+        if(btn.dataset.action==='delete-driver'){ deleteDriver(id); }
+        if(btn.dataset.action==='edit-driver'){
+          const d = state.drivers.find(x=>x.id===id); if(!d) return;
+          el('#edit-driver-form').style.display='block';
+          el('#e-id').value=d.id; el('#e-name').value=d.name; el('#e-phone').value=d.phone; el('#e-pass').value=d.password; el('#e-target').value=d.monthlyTarget;
+        }
+      });
+      const cancelEdit = el('#cancel-edit'); if(cancelEdit){ cancelEdit.addEventListener('click', ()=>{ el('#edit-driver-form').style.display='none'; }); }
+      const doEdit = el('#do-edit'); if(doEdit){ doEdit.addEventListener('click', ()=>{
+        const id = Number(el('#e-id').value);
+        updateDriver(id,{ name:el('#e-name').value.trim(), phone:el('#e-phone').value.trim(), password:el('#e-pass').value.trim(), monthlyTarget: Number(el('#e-target').value||1000) });
+        el('#edit-driver-form').style.display='none';
+      }); }
+    }
+
+    // --- Statements (filters / render / print / export / notes edit)
+    const stmtSel = el('#stmtDriver');
+    const stmtFrom = el('#stmtFrom');
+    const stmtTo   = el('#stmtTo');
+    const stmtType = el('#stmtType');
+    const stmtApply= el('#stmt-apply');
+    const stmtArea = el('#stmtArea');
+
+    function updateStatementUI(){
+      const id = Number((stmtSel||{}).value||0);
+      if(!id){ if(stmtArea) stmtArea.innerHTML = L('اختر الإعدادات ثم اضغط تطبيق','Choose filters then click Apply'); return; }
+      const opts = {
+        from: (stmtFrom&&stmtFrom.value)||null,
+        to:   (stmtTo&&stmtTo.value)||null,
+        type: (stmtType&&stmtType.value)||'all'
+      };
+      const block = buildDriverStatementPro(id, opts);
+      if(stmtArea) stmtArea.innerHTML = block.html;
+
+      // Notes save (delegate) — نعيد ربطها كل مرة
+      if(stmtArea){
+        stmtArea.onclick = (e)=>{
+          const btn = e.target.closest('button[data-action="save-note"]');
+          if(!btn) return;
+          const tripId = Number(btn.dataset.trip);
+          const input = stmtArea.querySelector('input.note-edit[data-trip="'+tripId+'"]');
+          const noteVal = (input && input.value) || '';
+          state.trips = state.trips.map(t=> t.id===tripId ? {...t, notes: noteVal} : t);
+          persist(); updateStatementUI();
+        };
+      }
+    }
+
+    if(stmtApply){ stmtApply.addEventListener('click', updateStatementUI); }
+    if(stmtSel){ stmtSel.addEventListener('change', updateStatementUI); }
+    if(stmtFrom){ stmtFrom.addEventListener('change', updateStatementUI); }
+    if(stmtTo){ stmtTo.addEventListener('change', updateStatementUI); }
+    if(stmtType){ stmtType.addEventListener('change', updateStatementUI); }
+
+    // Print
+    const stmtPrint = el('#stmt-print'); 
+    if(stmtPrint){ stmtPrint.addEventListener('click', ()=>{
+      const id = Number((stmtSel||{}).value||0);
+      if(!id){ alert(L('اختر سائقًا أولاً','Select a driver first')); return; }
+      const opts = {
+        from: (stmtFrom&&stmtFrom.value)||null,
+        to:   (stmtTo&&stmtTo.value)||null,
+        type: (stmtType&&stmtType.value)||'all'
+      };
+      const block = buildDriverStatementPro(id, opts);
+      const d = state.drivers.find(x=>x.id===id);
+      const now = new Date().toLocaleString(state.lang==='ar'?'ar-AE':'en-US');
+      const html = `
+        <!DOCTYPE html><html lang="${state.lang}" dir="${state.lang==='ar'?'rtl':'ltr'}"><head><meta charset="utf-8"/>
+        <title>${L('كشف حساب','Statement')}</title>
+        <style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Arabic","Helvetica Neue",Arial,"Noto Kufi Arabic"} table{width:100%;border-collapse:collapse} th,td{border:1px solid #e5e7eb;padding:8px;text-align:right} .muted{color:#6b7280}</style>
+        </head><body>
+          <div style="max-width:900px;margin:0 auto;padding:24px">
+            <h1 style="margin:0 0 8px 0;color:#ef4444">مخبز الصحاري</h1>
+            <div class="muted">${now}</div>
+            <div style="margin:12px 0"><b>${L('السائق:','Driver:')}</b> ${(d?d.name:'')} — ${(d?d.phone:'')}</div>
+            ${block.html.replace(/^<div class="card p-4">/,'<div>').replace(/<\/div>\s*$/,'</div>')}
+          </div>
+          <script>window.print();<\/script>
+        </body></html>`;
+      const w = window.open('', '_blank');
+      if(w && w.document){ w.document.write(html); w.document.close(); }
+    }); }
+
+    // Export CSV
+    const stmtExport = el('#stmt-export');
+    if(stmtExport){ stmtExport.addEventListener('click', ()=>{
+      const id = Number((stmtSel||{}).value||0);
+      if(!id){ alert(L('اختر سائقًا أولاً','Select a driver first')); return; }
+      const opts = {
+        from: (stmtFrom&&stmtFrom.value)||null,
+        to:   (stmtTo&&stmtTo.value)||null,
+        type: (stmtType&&stmtType.value)||'all'
+      };
+      const block = buildDriverStatementPro(id, opts);
+      const headers = ['date','type','tripId','s_qty','s_price','s_amount','l_qty','l_price','l_amount','debit','credit','balance','net_small','net_large','notes'];
+      const csvRows = block.rows.map(r=>[
+        r.date, r.typeKey, r.tripId||'', r.sQty||0, r.sPrice||0, r.sAmt||0, r.lQty||0, r.lPrice||0, r.lAmt||0,
+        r.debit||0, r.credit||0, r.balance||0, r.netSmall||0, r.netLarge||0, (r.notes||'').replace(/[\r\n,]+/g,' ')
+      ].join(','));
+      const csv = headers.join(',')+'\n'+csvRows.join('\n');
+      const blob = new Blob([csv], {type:'text/csv'});
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download='driver-statement.csv'; a.click();
+    }); }
+  }
+}
+// ===== Drivers CRUD =====
+function addDriver({ name, phone, password, monthlyTarget=1000 }){
+  name = (name||'').trim();
+  phone = (phone||'').trim();
+  password = (password||'').trim();
+
+  if(!name || !password){
+    alert(L('الاسم وكلمة المرور مطلوبين','Name and password are required'));
+    return;
+  }
+
+  const nextId = state.drivers.reduce((m,d)=>Math.max(m, Number(d.id||0)), 0) + 1;
+
+  state.drivers = [
+    ...state.drivers,
+    {
+      id: nextId,
+      name,
+      phone,
+      password,
+      points: 100,
+      active: true,
+      monthlyTarget: Number(monthlyTarget||1000)
+    }
+  ];
+
+  persist();
+  render();
+  alert(L('تمت إضافة السائق ✅','Driver added ✅'));
+}
+
+function updateDriver(id, updates){
+  const idx = state.drivers.findIndex(d=>d.id===id);
+  if(idx === -1) return;
+
+  const u = {...updates};
+  if('name' in u) u.name = (u.name||'').trim();
+  if('phone' in u) u.phone = (u.phone||'').trim();
+  if('password' in u) u.password = (u.password||'').trim();
+  if('monthlyTarget' in u) u.monthlyTarget = Number(u.monthlyTarget||0);
+
+  state.drivers = state.drivers.map(d => d.id===id ? ({...d, ...u}) : d);
+
+  persist();
+  render();
+  alert(L('تم حفظ التعديل ✅','Saved ✅'));
+}
+
+function deleteDriver(id){
+  const d = state.drivers.find(x=>x.id===id);
+  if(!d) return;
+
+  if(!confirm(L('حذف هذا السائق؟','Delete this driver?'))) return;
+
+  // امنع حذف سائق له رحلات (اختياري)
+  const hasTrips = state.trips.some(t => Number(t.driverId) === Number(id));
+  if(hasTrips){
+    alert(L('لا يمكن حذف سائق لديه رحلات مسجلة','Cannot delete a driver that has trips'));
+    return;
+  }
+
+  state.drivers = state.drivers.filter(x => x.id !== id);
+
+  persist();
+  render();
+  alert(L('تم حذف السائق ✅','Driver deleted ✅'));
+}
+
+// ===== Start =====
+try{ recomputeFromTrips(); render(); }catch(e){
+  var box=document.getElementById('debug-overlay'); var txt=document.getElementById('debug-text');
+  if(box&&txt){ box.style.display='block'; txt.textContent=(e.message||'')+'\\n'+(e.stack||''); }
+  console.error(e);
+}
+</script>
+</body>
+</html>
